@@ -28,7 +28,7 @@ def get_data(file):
 
 # options
 save = False
-plot = True
+plot = False
 
 base_dir = '/home/fedepare/DVS-SNN/DVS-datasets'
 filename = base_dir + '/' + 'mnist_0_scale04_0216.aedat'
