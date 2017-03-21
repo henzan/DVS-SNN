@@ -26,7 +26,10 @@ class LIF():
         tauM = 0.01
         tauS = 0.0025
 
-        return K * (np.exp(-sj/tauM) - np.exp(-sj/tauS)) * self.Heaviside(sj)
+        if sj >= 0:
+            return K * (np.exp(-sj/tauM) - np.exp(-sj/tauS)) * self.Heaviside(sj)
+        else:
+            return 0
 
 
     def kernelEta(self, si):
@@ -37,14 +40,21 @@ class LIF():
         tauM = 0.01
         tauS = 0.0025
 
-        return T * (K1 * np.exp(-si/tauM) - K2 * (np.exp(-si/tauM) - np.exp(-si/tauS))) * self.Heaviside(si)
+        if si >= 0:
+            return T * (K1 * np.exp(-si/tauM) - K2 * (np.exp(-si/tauM) - np.exp(-si/tauS)))
+        else:
+            return 0
 
 
     def kernelMu(self, sk):
 
         alpha = 0.25
         T     = 550
-        return - alpha * T * self.kernelEpsilon(sk)
+
+        if sk >= 0:
+            return - alpha * T * self.kernelEpsilon(sk)
+        else:
+            return 0
 
 
     def Heaviside(self, s):
