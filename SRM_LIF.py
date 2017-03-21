@@ -12,14 +12,13 @@ class LIF():
             - Fully connected neurons (all the inputs are connected to each of the postsynaptic neurons
             - Lateral inhibition in each layer of the network """
 
-    def __init__(self, numPreNeurons, numPostNeurons, preWeights, time, spikeTrain, counters):
+    def __init__(self, numPreNeurons, numPostNeurons, preWeights, time, counters):
         """Create the network"""
 
         self.numPreNeurons  = numPreNeurons
         self.numPostNeurons = numPostNeurons
         self.preWeights     = preWeights
         self.timeSpikes     = time
-        self.neuronSpike    = spikeTrain
         self.counterSpike   = counters
         self.potential      = np.zeros(numPostNeurons)
         self.threshold      = 550
@@ -40,6 +39,7 @@ class LIF():
         counters = np.zeros(self.numPreNeurons)
         for t in xrange(0, int(floor(tSim / dt))):
 
+            # store the time vector
             self.timePlot[t] = t*dt
 
             flags = np.zeros(self.numPreNeurons)

@@ -62,36 +62,36 @@ def poissonSpikeGen(dt, tSim, numPreNeurons, plot=False):
             auxTime   = time[j][0:int(counters[j])]
             ax.scatter(auxTime, auxSpikes)
 
-    return time, spikeTrain, counters
+    return time, counters
 
 ######
 # MAIN
 ######
 
 # variables
-dt = 0.001
-tSim = 150
+dt   = 0.001
+tSim = 0.1
 
 # number of fully-connected neurons
-numPreNeurons  = 10
-numPostNeurons = 3
+numPreNeurons  = 1
+numPostNeurons = 1
 
 # define input spike train
-time, spikeTrain, counters = poissonSpikeGen(dt, tSim, numPreNeurons, False)
+time, counters = poissonSpikeGen(dt, tSim, numPreNeurons, True)
 
 # weights of all the synapses
-preWeights = np.random.uniform(0, 1,(numPreNeurons, numPostNeurons))
+preWeights = np.random.uniform(0, 1, (numPreNeurons, numPostNeurons))
 
 # create the first layer of neurons
-firstLayer = LIF(numPreNeurons, numPostNeurons, preWeights, time, spikeTrain, counters)
+firstLayer = LIF(numPreNeurons, numPostNeurons, preWeights, time, counters)
 
 # execute the simulation
 firstLayer.simulation(tSim, dt)
 
 # initialize figure
 mpl.rcParams['legend.fontsize'] = 10
-fig = plt.figure(3)
-ax = fig.gca()
+fig = plt.figure(1)
+ax  = fig.gca()
 ax.set_xlabel('Time (ms)')
 ax.set_ylabel('v')
 ax.plot(firstLayer.timePlot, firstLayer.potArray[0][:])
