@@ -40,31 +40,31 @@ class LIF():
         counters = np.zeros(self.numPreNeurons)
         for t in xrange(0, int(floor(tSim / dt))):
 
-            self.timePlot[t] = t
+            self.timePlot[t] = t*dt
 
             flags = np.zeros(self.numPreNeurons)
             for x in xrange(0, self.numPostNeurons):
 
                 # incoming presynaptic spike
                 for j in xrange(0, self.numPreNeurons):
-                    if t >= self.timeSpikes[j][int(counters[j])] and counters[j] <= self.counterSpike[j]:
+                    if t*dt >= self.timeSpikes[j][int(counters[j])] and counters[j] <= self.counterSpike[j]:
                         flags[j] = 1
                         self.tj[j][x] = self.timeSpikes[j][int(counters[j])]
 
                 # check if above threshold
                 if self.potential[x] > self.threshold:
-                    self.ti[x] = t
+                    self.ti[x] = t*dt
                     self.tk.fill(10**6)
-                    self.tk[x] = t
+                    self.tk[x] = t*dt
 
                 # initilize the membrane potential
                 self.potential[x] = 0
 
                 # update the potential of this neuron
-                self.potential[x] += self.kernelEta(t - self.ti[x])
+                self.potential[x] += self.kernelEta(t*dt - self.ti[x])
                 for j in xrange(0, self.numPreNeurons):
-                    self.potential[x] += self.preWeights[j][x] * self.kernelEpsilon(t - self.tj[j][x])
-                self.potential[x] += self.kernelMu(t - min(self.tk))
+                    self.potential[x] += self.preWeights[j][x] * self.kernelEpsilon(t*dt - self.tj[j][x])
+                self.potential[x] += self.kernelMu(t*dt - min(self.tk))
 
                 # update the matrix
                 self.potArray[x][t] = self.potential[x]
