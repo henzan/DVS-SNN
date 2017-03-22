@@ -53,7 +53,7 @@ def poissonSpikeGen(dt, tSim, numPreNeurons, plot=False):
     if plot == True:
         # initialize figure
         mpl.rcParams['legend.fontsize'] = 10
-        fig = plt.figure(2)
+        fig = plt.figure(3)
         ax = fig.gca()
         ax.set_xlabel('Time (ms)')
         ax.set_ylabel('v')
@@ -70,11 +70,11 @@ def poissonSpikeGen(dt, tSim, numPreNeurons, plot=False):
 
 # variables
 dt   = 0.001
-tSim = 1
+tSim = 0.5
 
 # number of fully-connected neurons
-numPreNeurons  = 10
-numPostNeurons = 3
+numPreNeurons  = 2000
+numPostNeurons = 2
 
 # define input spike train
 time, counters = poissonSpikeGen(dt, tSim, numPreNeurons, False)
@@ -86,7 +86,7 @@ preWeights = np.random.uniform(0, 1, (numPreNeurons, numPostNeurons))
 firstLayer = LIF(numPreNeurons, numPostNeurons, preWeights, time, counters)
 
 # execute the simulation
-firstLayer.simulation(tSim, dt)
+firstLayer.simulation(tSim, dt, timers=False)
 
 # initialize figure
 mpl.rcParams['legend.fontsize'] = 10

@@ -31,23 +31,27 @@ class LIF():
 
         self.refraction = 5
 
-    def simulation(self, tSim, dt):
+        self.tauM = 0.01
+        self.tauS = 0.0025
+        self.K = 2.11654611985
+        self.K1 = 2
+        self.K2 = 4
+        self.alpha = 0.25
+
+
+    def simulation(self, tSim, dt, timers=False):
 
         """ Assumption: the presynaptic spikes arrive at the same time at all the postsynaptic neurons"""
 
-        tauM = 0.01
-
         self.potArray = np.zeros((self.numPostNeurons, int(floor(tSim / dt))))
-        self.timePlot = np.zeros(int(floor(tSim / dt)))
+        self.timePlot = np.linspace(0, tSim, int(floor(tSim / dt)))
 
         counters = np.zeros(self.numPreNeurons)
         flagsSpikes = np.zeros(self.numPostNeurons)
         for t in xrange(0, int(floor(tSim / dt))-1):
 
-            print 'New timestep------------------------------------------------'
-
-            # store the time vector
-            self.timePlot[t] = t*dt
+            if timers == True:
+                print 'New timestep------------------------------------------------'
 
             # timers
             time1 = time2 = time3 = time4 = time5 = 0
@@ -93,18 +97,17 @@ class LIF():
                 self.potArray[x][t] = 0
 
                 # update the potential of this neuron
-                if (t*dt - self.ti[x]) < 7*tauM:
+                if (t*dt - self.ti[x]) < 7*self.tauM:
                     self.potArray[x][t] += self.kernelEta(t*dt - self.ti[x])
 
                 for j in xrange(0, self.numPreNeurons):
                     for w in xrange(0, 100):
-                        if self.tj3d[j][x][w] != 0:
-                            if (t * dt - self.tj3d[j][x][w]) < 7*tauM:
-                                self.potArray[x][t] += self.preWeights[j][x] * self.kernelEpsilon(t * dt - self.tj3d[j][x][w])
+                        if self.tj3d[j][x][w] != 0 and (t * dt - self.tj3d[j][x][w]) < 7*self.tauM:
+                            self.potArray[x][t] += self.preWeights[j][x] * self.kernelEpsilon(t * dt - self.tj3d[j][x][w])
                         else:
                             break
 
-                if (t*dt - min(self.tk)) < 7 * tauM:
+                if (t*dt - min(self.tk)) < 7 * self.tauM:
                     self.potArray[x][t] += self.kernelMu(t*dt - min(self.tk))
 
                 stop = time.clock()
@@ -134,7 +137,6 @@ class LIF():
 
                 # update the membrane potential
                 self.potArray[x][t+1] = self.potArray[x][t]
-                self.timePlot[t+1] = (t+1) * dt
 
             # this spike has already been fired
             for j in xrange(0, self.numPreNeurons):
@@ -142,43 +144,29 @@ class LIF():
                     counters[j] += 1
 
             # timers
-            print 'Presynaptic spike: %s' % (time1)
-            print 'Refractory period: %s' % (time2)
-            print 'Check if above the threshold: %s' % (time3)
-            print 'Update potential: %s' % (time4)
-            print 'STDP: %s' % (time5)
+            if timers == True:
+                print 'Presynaptic spike: %s' % (time1)
+                print 'Refractory period: %s' % (time2)
+                print 'Check if above the threshold: %s' % (time3)
+                print 'Update potential: %s' % (time4)
+                print 'STDP: %s' % (time5)
 
     def kernelEpsilon(self, sj):
-
-        K = 2.11654611985
-        tauM = 0.01
-        tauS = 0.0025
-
         if sj >= 0:
-            return K * (np.exp(-sj/tauM) - np.exp(-sj/tauS))
+            return self.K * (np.exp(-sj/self.tauM) - np.exp(-sj/self.tauS))
         else:
             return 0
 
 
     def kernelEta(self, si):
-
-        K1 = 2
-        K2 = 4
-        tauM = 0.01
-        tauS = 0.0025
-
         if si >= 0:
-            return self.threshold * (K1 * np.exp(-si/tauM) - K2 * (np.exp(-si/tauM) - np.exp(-si/tauS)))
+            return self.threshold * (self.K1 * np.exp(-si/self.tauM) - self.K2 * (np.exp(-si/self.tauM) - np.exp(-si/self.tauS)))
         else:
             return 0
 
 
     def kernelMu(self, sk):
-
-        alpha = 0.25
-        T     = 550
-
         if sk >= 0:
-            return - alpha * T * self.kernelEpsilon(sk)
+            return - self.alpha * self.threshold * self.kernelEpsilon(sk)
         else:
             return 0
