@@ -22,16 +22,18 @@ class LIF():
         self.counterSpike   = counters
         self.potential      = np.zeros(numPostNeurons)
         self.threshold      = 550
-        self.tj             = np.zeros((numPreNeurons, numPostNeurons))
+        self.tj3d           = np.zeros((numPreNeurons, numPostNeurons, 100))
         self.ti             = np.zeros(numPostNeurons)
         self.tk             = np.zeros(numPostNeurons)
-        self.tj.fill(10**6)
+        self.tj3d.fill(10**6)
         self.ti.fill(10**6)
         self.tk.fill(10**6)
 
     def simulation(self, tSim, dt):
 
         """ Assumption: the presynaptic spikes arrive at the same time at all the postsynaptic neurons"""
+
+        tauM = 0.01
 
         self.potArray = np.zeros((self.numPostNeurons, int(floor(tSim / dt))))
         self.timePlot = np.zeros(int(floor(tSim / dt)))
@@ -47,9 +49,10 @@ class LIF():
 
                 # incoming presynaptic spike
                 for j in xrange(0, self.numPreNeurons):
-                    if t*dt >= self.timeSpikes[j][int(counters[j])] and counters[j] <= self.counterSpike[j]:
+                    if t*dt >= self.timeSpikes[j][int(counters[j])] and counters[j] <= self.counterSpike[j] - 1:
                         flags[j] = 1
-                        self.tj[j][x] = self.timeSpikes[j][int(counters[j])]
+                        self.tj3d[j][x][:] = np.roll(self.tj3d[j][x], 1, axis=0)
+                        self.tj3d[j][x][0] = self.timeSpikes[j][int(counters[j])]
 
                 # check if above threshold
                 if self.potential[x] > self.threshold:
@@ -63,7 +66,12 @@ class LIF():
                 # update the potential of this neuron
                 self.potential[x] += self.kernelEta(t*dt - self.ti[x])
                 for j in xrange(0, self.numPreNeurons):
-                    self.potential[x] += self.preWeights[j][x] * self.kernelEpsilon(t*dt - self.tj[j][x])
+                    for w in xrange(0, 100):
+                        if self.tj3d[j][x][w] != 0:
+                            if (t * dt - self.tj3d[j][x][w]) < 7*tauM:
+                                self.potential[x] += self.preWeights[j][x] * self.kernelEpsilon(t * dt - self.tj3d[j][x][w])
+                        else:
+                            break
                 self.potential[x] += self.kernelMu(t*dt - min(self.tk))
 
                 # update the matrix
@@ -74,13 +82,14 @@ class LIF():
                 if flags[j] == 1:
                     counters[j] += 1
 
+
     def kernelEpsilon(self, sj):
 
         K = 2.11654611985
         tauM = 0.01
         tauS = 0.0025
 
-        if sj >= 0 and sj < 7*tauM:
+        if sj >= 0:
             return K * (np.exp(-sj/tauM) - np.exp(-sj/tauS))
         else:
             return 0
@@ -94,7 +103,7 @@ class LIF():
         tauM = 0.01
         tauS = 0.0025
 
-        if si >= 0 and si < 7*tauM:
+        if si >= 0:
             return T * (K1 * np.exp(-si/tauM) - K2 * (np.exp(-si/tauM) - np.exp(-si/tauS)))
         else:
             return 0
@@ -104,9 +113,8 @@ class LIF():
 
         alpha = 0.25
         T     = 550
-        tauM  = 0.01
 
-        if sk >= 0 and sk < 7*tauM:
+        if sk >= 0:
             return - alpha * T * self.kernelEpsilon(sk)
         else:
             return 0

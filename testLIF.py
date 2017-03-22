@@ -70,14 +70,14 @@ def poissonSpikeGen(dt, tSim, numPreNeurons, plot=False):
 
 # variables
 dt   = 0.001
-tSim = 0.1
+tSim = 1
 
 # number of fully-connected neurons
-numPreNeurons  = 1
+numPreNeurons  = 2
 numPostNeurons = 1
 
 # define input spike train
-time, counters = poissonSpikeGen(dt, tSim, numPreNeurons, True)
+time, counters = poissonSpikeGen(dt, tSim, numPreNeurons, False)
 
 # weights of all the synapses
 preWeights = np.random.uniform(0, 1, (numPreNeurons, numPostNeurons))
@@ -92,7 +92,7 @@ firstLayer.simulation(tSim, dt)
 mpl.rcParams['legend.fontsize'] = 10
 fig = plt.figure(1)
 ax  = fig.gca()
-ax.set_xlabel('Time (ms)')
+ax.set_xlabel('Time (s)')
 ax.set_ylabel('v')
 ax.plot(firstLayer.timePlot, firstLayer.potArray[0][:])
 
