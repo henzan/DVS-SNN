@@ -1,6 +1,7 @@
 #########
 # IMPORTS
 #########
+import time
 import numpy as np
 from math import *
 
@@ -43,12 +44,19 @@ class LIF():
         flagsSpikes = np.zeros(self.numPostNeurons)
         for t in xrange(0, int(floor(tSim / dt))-1):
 
+            print 'New timestep------------------------------------------------'
+
             # store the time vector
             self.timePlot[t] = t*dt
+
+            # timers
+            time1 = time2 = time3 = time4 = time5 = 0
 
             flags = np.zeros(self.numPreNeurons)
             flagsSpikesInstant = np.zeros(self.numPostNeurons)
             for x in xrange(0, self.numPostNeurons):
+
+                start = time.clock()
 
                 # incoming presynaptic spike
                 for j in xrange(0, self.numPreNeurons):
@@ -57,9 +65,17 @@ class LIF():
                         self.tj3d[j][x][:] = np.roll(self.tj3d[j][x], 1, axis=0)
                         self.tj3d[j][x][0] = self.timeSpikes[j][int(counters[j])]
 
+                stop = time.clock()
+                time1 += stop - start
+                start = time.clock()
+
                 # Refractory period (no new spike)
                 if self.ti[x] < 10**6 and (t*dt - self.ti[x]) >= self.refraction*dt:
                     flagsSpikes[x] = 0
+
+                stop = time.clock()
+                time2 += stop - start
+                start = time.clock()
 
                 # check if above threshold
                 if self.potArray[x][t] > self.threshold and flagsSpikes[x] == 0:
@@ -68,6 +84,10 @@ class LIF():
                     self.tk[x] = t*dt
                     flagsSpikes[x] = 1
                     flagsSpikesInstant[x] = 1
+
+                stop = time.clock()
+                time3 += stop - start
+                start = time.clock()
 
                 # initilize the membrane potential
                 self.potArray[x][t] = 0
@@ -87,6 +107,10 @@ class LIF():
                 if (t*dt - min(self.tk)) < 7 * tauM:
                     self.potArray[x][t] += self.kernelMu(t*dt - min(self.tk))
 
+                stop = time.clock()
+                time4 += stop - start
+                start = time.clock()
+
                 # spike-time-dependent plasticity (STDP)
                 if flagsSpikesInstant[x] == 1:
                     tauPlus  = 16.8*dt
@@ -105,6 +129,9 @@ class LIF():
                         elif self.preWeights[j][x] < -1:
                             self.preWeights[j][x] = -1
 
+                stop = time.clock()
+                time5 += stop - start
+
                 # update the membrane potential
                 self.potArray[x][t+1] = self.potArray[x][t]
                 self.timePlot[t+1] = (t+1) * dt
@@ -114,6 +141,12 @@ class LIF():
                 if flags[j] == 1:
                     counters[j] += 1
 
+            # timers
+            print 'Presynaptic spike: %s' % (time1)
+            print 'Refractory period: %s' % (time2)
+            print 'Check if above the threshold: %s' % (time3)
+            print 'Update potential: %s' % (time4)
+            print 'STDP: %s' % (time5)
 
     def kernelEpsilon(self, sj):
 

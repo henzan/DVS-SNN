@@ -73,7 +73,7 @@ dt   = 0.001
 tSim = 1
 
 # number of fully-connected neurons
-numPreNeurons  = 2000
+numPreNeurons  = 10
 numPostNeurons = 3
 
 # define input spike train
