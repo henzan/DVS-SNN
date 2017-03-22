@@ -20,7 +20,6 @@ class LIF():
         self.preWeights     = preWeights
         self.timeSpikes     = time
         self.counterSpike   = counters
-        self.potential      = np.zeros(numPostNeurons)
         self.threshold      = 550
         self.tj3d           = np.zeros((numPreNeurons, numPostNeurons, 100))
         self.ti             = np.zeros(numPostNeurons)
@@ -28,6 +27,8 @@ class LIF():
         self.tj3d.fill(10**6)
         self.ti.fill(10**6)
         self.tk.fill(10**6)
+
+        self.refraction = 5
 
     def simulation(self, tSim, dt):
 
@@ -39,12 +40,14 @@ class LIF():
         self.timePlot = np.zeros(int(floor(tSim / dt)))
 
         counters = np.zeros(self.numPreNeurons)
-        for t in xrange(0, int(floor(tSim / dt))):
+        flagsSpikes = np.zeros(self.numPostNeurons)
+        for t in xrange(0, int(floor(tSim / dt))-1):
 
             # store the time vector
             self.timePlot[t] = t*dt
 
             flags = np.zeros(self.numPreNeurons)
+            flagsSpikesInstant = np.zeros(self.numPostNeurons)
             for x in xrange(0, self.numPostNeurons):
 
                 # incoming presynaptic spike
@@ -54,28 +57,57 @@ class LIF():
                         self.tj3d[j][x][:] = np.roll(self.tj3d[j][x], 1, axis=0)
                         self.tj3d[j][x][0] = self.timeSpikes[j][int(counters[j])]
 
+                # Refractory period (no new spike)
+                if self.ti[x] < 10**6 and (t*dt - self.ti[x]) >= self.refraction*dt:
+                    flagsSpikes[x] = 0
+
                 # check if above threshold
-                if self.potential[x] > self.threshold:
+                if self.potArray[x][t] > self.threshold and flagsSpikes[x] == 0:
                     self.ti[x] = t*dt
                     self.tk.fill(10**6)
                     self.tk[x] = t*dt
+                    flagsSpikes[x] = 1
+                    flagsSpikesInstant[x] = 1
 
                 # initilize the membrane potential
-                self.potential[x] = 0
+                self.potArray[x][t] = 0
 
                 # update the potential of this neuron
-                self.potential[x] += self.kernelEta(t*dt - self.ti[x])
+                if (t*dt - self.ti[x]) < 7*tauM:
+                    self.potArray[x][t] += self.kernelEta(t*dt - self.ti[x])
+
                 for j in xrange(0, self.numPreNeurons):
                     for w in xrange(0, 100):
                         if self.tj3d[j][x][w] != 0:
                             if (t * dt - self.tj3d[j][x][w]) < 7*tauM:
-                                self.potential[x] += self.preWeights[j][x] * self.kernelEpsilon(t * dt - self.tj3d[j][x][w])
+                                self.potArray[x][t] += self.preWeights[j][x] * self.kernelEpsilon(t * dt - self.tj3d[j][x][w])
                         else:
                             break
-                self.potential[x] += self.kernelMu(t*dt - min(self.tk))
 
-                # update the matrix
-                self.potArray[x][t] = self.potential[x]
+                if (t*dt - min(self.tk)) < 7 * tauM:
+                    self.potArray[x][t] += self.kernelMu(t*dt - min(self.tk))
+
+                # spike-time-dependent plasticity (STDP)
+                if flagsSpikesInstant[x] == 1:
+                    tauPlus  = 16.8*dt
+                    tauMinus = 33.7*dt
+                    aPlus    = 0.03125
+                    aMinus   = 0.85*aPlus
+                    for j in xrange(0, self.numPreNeurons):
+                        if self.tj3d[j][x][-1] <= self.ti[x]:
+                            self.preWeights[j][x] += aPlus * np.exp((self.tj3d[j][x][-1] - self.ti[x])/tauPlus)
+                        else:
+                            self.preWeights[j][x] += - aMinus * np.exp(-(self.tj3d[j][x][-1] - self.ti[x])/tauMinus)
+
+                        # bound the synaptic weights
+                        if self.preWeights[j][x] > 1:
+                            self.preWeights[j][x] = 1
+                        elif self.preWeights[j][x] < -1:
+                            self.preWeights[j][x] = -1
+
+                # update the membrane potential
+                self.potArray[x][t+1] = self.potArray[x][t]
+                self.timePlot[t+1] = (t+1) * dt
 
             # this spike has already been fired
             for j in xrange(0, self.numPreNeurons):
@@ -97,14 +129,13 @@ class LIF():
 
     def kernelEta(self, si):
 
-        T  = 550
         K1 = 2
         K2 = 4
         tauM = 0.01
         tauS = 0.0025
 
         if si >= 0:
-            return T * (K1 * np.exp(-si/tauM) - K2 * (np.exp(-si/tauM) - np.exp(-si/tauS)))
+            return self.threshold * (K1 * np.exp(-si/tauM) - K2 * (np.exp(-si/tauM) - np.exp(-si/tauS)))
         else:
             return 0
 

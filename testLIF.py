@@ -73,8 +73,8 @@ dt   = 0.001
 tSim = 1
 
 # number of fully-connected neurons
-numPreNeurons  = 2
-numPostNeurons = 1
+numPreNeurons  = 2000
+numPostNeurons = 3
 
 # define input spike train
 time, counters = poissonSpikeGen(dt, tSim, numPreNeurons, False)
@@ -95,5 +95,13 @@ ax  = fig.gca()
 ax.set_xlabel('Time (s)')
 ax.set_ylabel('v')
 ax.plot(firstLayer.timePlot, firstLayer.potArray[0][:])
+
+# initialize figure
+mpl.rcParams['legend.fontsize'] = 10
+fig = plt.figure(2)
+ax  = fig.gca()
+ax.set_xlabel('Time (s)')
+ax.set_ylabel('v')
+ax.plot(firstLayer.timePlot, firstLayer.potArray[1][:])
 
 plt.show()
