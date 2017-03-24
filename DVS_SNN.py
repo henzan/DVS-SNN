@@ -26,6 +26,7 @@ def get_data(file):
 
 # start the scope for Brian
 start_scope()
+defaultclock.dt = 0.01*ms
 
 # read the DVS dile
 filename = 'mnist_0_scale04_0216.aedat'
@@ -67,7 +68,26 @@ wmax = 1
 Apre = 0.03125
 Apost = -0.85*Apre
 
-S = Synapses(I, G,
+Sinh = Synapses(I, G,
+             '''
+             w : 1
+             dapre/dt = -apre/taupre : 1 (event-driven)
+             dapost/dt = -apost/taupost : 1 (event-driven)
+             ''',
+             on_pre='''
+             v_post -= w
+             apre += Apre
+             w = clip(w+apost, 0, wmax)
+             ''',
+             on_post='''
+             apost += Apost
+             w = clip(w+apre, 0, wmax)
+             ''', method='linear')
+
+Sinh.connect(condition='j==i')
+Sinh.w = 'rand()'
+
+Sexc = Synapses(I, G,
              '''
              w : 1
              dapre/dt = -apre/taupre : 1 (event-driven)
@@ -83,15 +103,15 @@ S = Synapses(I, G,
              w = clip(w+apre, 0, wmax)
              ''', method='linear')
 
-S.connect(condition='j==i and j==(limit+i)')
-S.w = 'rand()'
+Sexc.connect(condition='j==(limit+i)')
+Sexc.w = 'rand()'
 
 # lateral inhibition
 LI = Synapses(G, G,'', on_pre='v_post = 0', method='linear')
 LI.connect(condition='i!=j')
 
 # run the simulation
-run(100*ms, report='text')
+run(1000*ms, report='text')
 
 # plots
 mpl.rcParams['legend.fontsize'] = 10
