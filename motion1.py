@@ -2,10 +2,6 @@
 # IMPORTS
 #########
 import paer
-import pickle
-import warnings
-import numpy as np
-from math import *
 from brian2 import *
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -32,7 +28,7 @@ defaultclock.dt = 1*us
 # INPUTS #################################################################################################
 
 # read the DVS dile
-filename = 'mnist_0_scale16_0286.aedat'
+filename = 'mnist_0_scale16_0287.aedat'
 data, aetime = get_data('DVS-datasets/' + filename)
 
 # number of input neurons (2*128*128)
@@ -64,8 +60,13 @@ for x in xrange(0, len(spikes)-1):
         spikes2.append(spikes[x])
 print "Errors:", cnt
 
+lastSpike = max(spikes2)
+spikes3  = []
+for x in xrange(0, len(spikes2)):
+    spikes3.append(spikes2[x] + lastSpike + 50)
+
 # create Brian group for the inputs
-I = SpikeGeneratorGroup(2*128*128, indices2, spikes2*us)
+I = SpikeGeneratorGroup(2*128*128, indices2+indices2, (spikes2 + spikes3)*us)
 Minput = SpikeMonitor(I)
 
 # FIRST LAYER #############################################################################################
@@ -90,7 +91,7 @@ tau = 10*ms
 eqs = '''
 dv/dt = (-v)/tau : 1 (unless refractory)
 '''
-G1 = NeuronGroup(nG1, eqs, threshold='v>1', reset='v = 0', refractory='5*ms', method='linear')
+G1 = NeuronGroup(nG1, eqs, threshold='v>5', reset='v = 0', refractory='5*ms', method='linear')
 spikemon = SpikeMonitor(G1)
 M = StateMonitor(G1, 'v', record=12400)
 
@@ -162,7 +163,7 @@ LI_G1 = Synapses(G1, G1,'', on_pre='v_post = 0', method='linear')
 LI_G1.connect(i=LIinx, j=LIconnections)
 
 # run the simulation
-run((aetime)*us, report='text')
+run((max(spikes3))*us, report='text')
 
 # plot
 mpl.rcParams['legend.fontsize'] = 10
