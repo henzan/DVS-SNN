@@ -10,8 +10,8 @@ warnings.filterwarnings("ignore")
 ###########
 # FUNCTIONS
 ###########
-def get_data(file):
-    aefile = paer.aefile(file)
+def get_data(file, max=10**6):
+    aefile = paer.aefile(file, max_events=max+1)
     aedata = paer.aedata(aefile)
     aetime = (aefile.timestamp[-1]-aefile.timestamp[0])
     print 'Points: %i, Time: %0.2f us' % (len(aefile.data), aetime)
@@ -27,8 +27,11 @@ defaultclock.dt = 1*us
 
 # INPUTS #################################################################################################
 
+# CAUTION: Some .aedat files start from 0 and others from 1. We distinguish the two options
+aedatType = 0
+
 # read the DVS dile
-filename = 'mnist_0_scale16_0287.aedat'
+filename = 'test.aedat'
 data, aetime = get_data('DVS-datasets/' + filename)
 
 # number of input neurons (2*128*128)
@@ -36,37 +39,71 @@ DVSpx   = 128
 indices = []
 spikes  = []
 limit   = DVSpx * DVSpx - 1
-for x in xrange(0, len(data.y)):
+if aedatType == 1: # files with indices 1-128
+    for x in xrange(0, len(data.y)):
 
-    # P = 0
-    if data.t[x] == 0:
-        indices.append(((data.y[x] - 1)*DVSpx + data.x[x]) -1)
-        spikes.append(data.ts[x])
+        # P = 0
+        if data.t[x] == 0:
+            indices.append(((data.y[x] - 1)*DVSpx + data.x[x]) - 1)
+            spikes.append(data.ts[x])
 
-    # P = 1
-    else:
-        indices.append(((data.y[x] - 1) * DVSpx + data.x[x]) - 1 + limit)
-        spikes.append(data.ts[x])
+        # P = 1
+        else:
+            indices.append(((data.y[x] - 1) * DVSpx + data.x[x]) - 1 + limit)
+            spikes.append(data.ts[x])
+elif aedatType == 0: # files with indices 0-127
+    for x in xrange(0, len(data.y)):
+
+        # P = 0
+        if data.t[x] == 0:
+            indices.append(data.y[x]*DVSpx + data.x[x])
+            spikes.append(data.ts[x])
+
+        # P = 1
+        else:
+            indices.append(data.y[x]*DVSpx + data.x[x] + limit)
+            spikes.append(data.ts[x])
 
 # correct the data file for possible errors (repetitions)
+indicesSameTime = []
 indices2 = []
 spikes2  = []
-cnt = 0
-for x in xrange(0, len(spikes)-1):
-    if abs(spikes[x] - spikes[x+1]) == 0 and indices[x] == indices[x+1]:
-        cnt += 1
+flagSameTime = 0
+cntError     = 0
+timeDt = spikes[0]
+for x in xrange(0, len(spikes)):
+    if spikes[x] == timeDt:
+        indicesSameTime.append(indices[x])
     else:
-        indices2.append(indices[x])
-        spikes2.append(spikes[x])
-print "Errors:", cnt
+        flagSameTime = 1
 
-lastSpike = max(spikes2)
-spikes3  = []
-for x in xrange(0, len(spikes2)):
-    spikes3.append(spikes2[x] + lastSpike + 50)
+    # check duplicates in the same dt
+    if flagSameTime == 1:
+
+        # vector of unique neurons
+        uniqueIndices = []
+        for z in xrange(0, len(indicesSameTime)):
+            flag = 0
+            for zz in xrange(0, len(uniqueIndices)):
+                if indicesSameTime[z] == uniqueIndices[zz]:
+                    flag = 1
+                    break
+            if flag == 0:
+                uniqueIndices.append(indicesSameTime[z])
+            else:
+                flag = 0
+
+        indices2.extend(uniqueIndices)
+        spikes2.extend([timeDt for z in xrange(0, len(uniqueIndices))])
+        if len(uniqueIndices) != len(indicesSameTime):
+            cntError +=1
+        indicesSameTime = []
+        flagSameTime = 0
+        timeDt = spikes[x]
+print "Errors:", cntError
 
 # create Brian group for the inputs
-I = SpikeGeneratorGroup(2*128*128, indices2+indices2, (spikes2 + spikes3)*us)
+I = SpikeGeneratorGroup(2*128*128, indices2, spikes2*us)
 Minput = SpikeMonitor(I)
 
 # FIRST LAYER #############################################################################################
@@ -83,7 +120,7 @@ Minput = SpikeMonitor(I)
 sizeDVSpx  = DVSpx**2
 sidediv    = 4
 divDVSpx   = sidediv**2
-directions = 8
+directions = 20
 nG1        = sizeDVSpx / divDVSpx * directions * 2
 
 # first layer of neurons
@@ -163,7 +200,7 @@ LI_G1 = Synapses(G1, G1,'', on_pre='v_post = 0', method='linear')
 LI_G1.connect(i=LIinx, j=LIconnections)
 
 # run the simulation
-run((max(spikes3))*us, report='text')
+run((max(spikes2) + 1000)*us, report='text')
 
 # plot
 mpl.rcParams['legend.fontsize'] = 10
