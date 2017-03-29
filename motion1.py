@@ -39,30 +39,31 @@ DVSpx   = 128
 indices = []
 spikes  = []
 limit   = DVSpx * DVSpx - 1
+minSpikes = min(data.ts)
 if aedatType == 1: # files with indices 1-128
     for x in xrange(0, len(data.y)):
 
         # P = 0
         if data.t[x] == 0:
             indices.append(((data.y[x] - 1)*DVSpx + data.x[x]) - 1)
-            spikes.append(data.ts[x])
+            spikes.append(data.ts[x] - minSpikes + 1000)
 
         # P = 1
         else:
             indices.append(((data.y[x] - 1) * DVSpx + data.x[x]) - 1 + limit)
-            spikes.append(data.ts[x])
+            spikes.append(data.ts[x] - minSpikes + 1000)
 elif aedatType == 0: # files with indices 0-127
     for x in xrange(0, len(data.y)):
 
         # P = 0
         if data.t[x] == 0:
             indices.append(data.y[x]*DVSpx + data.x[x])
-            spikes.append(data.ts[x])
+            spikes.append(data.ts[x] - minSpikes + 1000)
 
         # P = 1
         else:
             indices.append(data.y[x]*DVSpx + data.x[x] + limit)
-            spikes.append(data.ts[x])
+            spikes.append(data.ts[x] - minSpikes + 1000)
 
 # correct the data file for possible errors (repetitions)
 indicesSameTime = []
