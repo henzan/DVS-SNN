@@ -10,7 +10,7 @@ warnings.filterwarnings("ignore")
 ###########
 # FUNCTIONS
 ###########
-def get_data(file, max=10**6):
+def get_data(file, max=10**60):
     aefile = paer.aefile(file, max_events=max+1)
     aedata = paer.aedata(aefile)
     aetime = (aefile.timestamp[-1]-aefile.timestamp[0])
@@ -69,17 +69,16 @@ elif aedatType == 0: # files with indices 0-127
 indicesSameTime = []
 indices2 = []
 spikes2  = []
-flagSameTime = 0
-cntError     = 0
-timeDt = spikes[0]
-for x in xrange(0, len(spikes)):
+cntError = 0
+timeDt   = spikes[0]
+for x in xrange(0, len(spikes)-1):
+
+    # extend the vector with the neurons firing in this dt
     if spikes[x] == timeDt:
         indicesSameTime.append(indices[x])
-    else:
-        flagSameTime = 1
 
-    # check duplicates in the same dt
-    if flagSameTime == 1:
+    # check for repetitions in the current dt
+    if spikes[x+1] != timeDt:
 
         # vector of unique neurons
         uniqueIndices = []
@@ -91,16 +90,13 @@ for x in xrange(0, len(spikes)):
                     break
             if flag == 0:
                 uniqueIndices.append(indicesSameTime[z])
-            else:
-                flag = 0
 
         indices2.extend(uniqueIndices)
         spikes2.extend([timeDt for z in xrange(0, len(uniqueIndices))])
         if len(uniqueIndices) != len(indicesSameTime):
             cntError +=1
         indicesSameTime = []
-        flagSameTime = 0
-        timeDt = spikes[x]
+        timeDt = spikes[x+1]
 print "Errors:", cntError
 
 # create Brian group for the inputs
