@@ -25,13 +25,14 @@ def get_data(file, max=10**60):
 start_scope()
 defaultclock.dt = 1*us
 
-# INPUTS #################################################################################################
+
+# INPUTS ########################################################################################
 
 # CAUTION: Some .aedat files start from 0 and others from 1. We distinguish the two options
 aedatType = 0
 
 # read the DVS dile
-filename = 'test.aedat'
+filename = 'test2.aedat'
 data, aetime = get_data('DVS-datasets/' + filename)
 
 # number of input neurons (2*128*128)
@@ -45,25 +46,25 @@ if aedatType == 1: # files with indices 1-128
 
         # P = 0
         if data.t[x] == 0:
-            indices.append(((data.y[x] - 1)*DVSpx + data.x[x]) - 1)
-            spikes.append(data.ts[x] - minSpikes + 1000)
+            indices.append(int(((data.y[x] - 1)*DVSpx + data.x[x]) - 1))
+            spikes.append(int(data.ts[x] - minSpikes + 1000))
 
         # P = 1
         else:
-            indices.append(((data.y[x] - 1) * DVSpx + data.x[x]) - 1 + limit)
-            spikes.append(data.ts[x] - minSpikes + 1000)
+            indices.append(int(((data.y[x] - 1) * DVSpx + data.x[x]) - 1 + limit))
+            spikes.append(int(data.ts[x] - minSpikes + 1000))
 elif aedatType == 0: # files with indices 0-127
     for x in xrange(0, len(data.y)):
 
         # P = 0
         if data.t[x] == 0:
-            indices.append(data.y[x]*DVSpx + data.x[x])
-            spikes.append(data.ts[x] - minSpikes + 1000)
+            indices.append(int(data.y[x]*DVSpx + data.x[x]))
+            spikes.append(int(data.ts[x] - minSpikes + 1000))
 
         # P = 1
         else:
-            indices.append(data.y[x]*DVSpx + data.x[x] + limit)
-            spikes.append(data.ts[x] - minSpikes + 1000)
+            indices.append(int(data.y[x]*DVSpx + data.x[x] + limit))
+            spikes.append(int(data.ts[x] - minSpikes + 1000))
 
 # correct the data file for possible errors (repetitions)
 indicesSameTime = []
@@ -103,7 +104,7 @@ print "Errors:", cntError
 I = SpikeGeneratorGroup(2*128*128, indices2, spikes2*us)
 Minput = SpikeMonitor(I)
 
-# FIRST LAYER #############################################################################################
+# FIRST LAYER ###################################################################################
 '''Each region of 4x4 pixels in the input layer is connected to 8 neurons
    representing the directions of the motion. Because of the bipolarity of the DVS,
    we need 8*2 neurons for each 4x4 pixel region.
@@ -196,7 +197,8 @@ for neuron in xrange(0, nG1):
 LI_G1 = Synapses(G1, G1,'', on_pre='v_post = 0', method='linear')
 LI_G1.connect(i=LIinx, j=LIconnections)
 
-# run the simulation
+
+# RUN THE SIMULATION & PLOTS ####################################################################
 run((max(spikes2) + 1000)*us, report='text')
 
 # plot
