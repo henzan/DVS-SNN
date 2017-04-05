@@ -194,6 +194,15 @@ for nIdx in xrange(0, DVSsize):
             connectIC1[int(cntConnections[nIdx])][nIdx] = idxRFmax * mIdx + connectIC1[l, nIdx]
             cntConnections[nIdx] += 1
 
+# prepare data for the simulator
+connectIC1dir = []
+connectIC1inp = []
+for nIdx in xrange(0, DVSsize):
+    connectIC1inp.append(nIdx)
+    aux = []
+    for c1Idx in xrange(0, int(cntConnections[nIdx])):
+        aux.append(connectIC1[c1Idx, nIdx])
+    connectIC1dir.append(aux)
 
 # RUN THE SIMULATION & PLOTS ####################################################################
 # run((max(spikes2) + 1000)*us, report='text')
