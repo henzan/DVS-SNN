@@ -92,7 +92,7 @@ for x in xrange(0, len(spikes)-1):
             cntError +=1
         indicesSameTime = []
         timeDt = spikes[x+1]
-print "Errors:", cntError
+print "Errors: %s\n" % cntError
 
 # create Brian group for the inputs
 if polarity: I = SpikeGeneratorGroup(2*DVSsize, indices2, spikes2*us)
@@ -100,6 +100,9 @@ else:        I = SpikeGeneratorGroup(DVSsize, indices2, spikes2*us)
 
 # monitor the input spike train
 Minput = SpikeMonitor(I)
+
+# report state of the script
+print "-> I: Input layer created."
 
 
 # FIRST CONVOLUTIONAL LAYER #####################################################################
@@ -110,7 +113,7 @@ RFc1len    = 4              # length of the side of the receptive field
 RFc1size   = RFc1len**2     # size of the receptive field
 RFc1lenmax = 32             # max length of the side of the receptive field
 nMapsc1    = 8              # number of neural maps in this convolutional layer
-overlap    = 4              # overlap type for the receptive fields of this layer
+overlap    = 2              # overlap type for the receptive fields of this layer
 
 # check receptive fields
 if RFc1len%2 != 0 or RFc1len > RFc1lenmax:
@@ -136,6 +139,12 @@ dv/dt = (-v)/tau : 1 (unless refractory)
 C1 = NeuronGroup(nC1, eqs, threshold='v>5', reset='v = 0', refractory='5*ms', method='linear')
 spikemon = SpikeMonitor(C1)
 M = StateMonitor(C1, 'v', record=False)
+
+# report state of the script
+print "-> C1: Convolutional layer created."
+
+
+# SYNAPSES: INPUT - C1 ##########################################################################
 
 # synapses between the input and first convolutional (neural maps not included)
 idxRF  = 0
@@ -195,28 +204,68 @@ for nIdx in xrange(0, DVSsize):
     else:
         cntCol += 1
 
-# maximum number of RF
-idxRFmax = idxRF + 1
-
 # augment the indices to other neural maps
 for nIdx in xrange(0, DVSsize):
     aux = int(cntConnections[nIdx])
     for mIdx in xrange(1, nMapsc1):
         for l in xrange(0, aux):
-            connectIC1[int(cntConnections[nIdx])][nIdx] = idxRFmax * mIdx + connectIC1[l, nIdx]
+            connectIC1[int(cntConnections[nIdx])][nIdx] = nC1 / nMapsc1 * mIdx + connectIC1[l, nIdx]
             cntConnections[nIdx] += 1
 
 # prepare data for the simulator
+# connectIC1dir = []
+# connectIC1inp = []
+# for nIdx in xrange(0, DVSsize):
+#     connectIC1inp.append(nIdx)
+#     aux = []
+#     for c1Idx in xrange(0, int(cntConnections[nIdx])):
+#         aux.append(int(connectIC1[c1Idx, nIdx]))
+#     connectIC1dir.append(aux)
+
 connectIC1dir = []
 connectIC1inp = []
 for nIdx in xrange(0, DVSsize):
-    connectIC1inp.append(nIdx)
-    aux = []
     for c1Idx in xrange(0, int(cntConnections[nIdx])):
-        aux.append(connectIC1[c1Idx, nIdx])
-    connectIC1dir.append(aux)
+        connectIC1inp.append(nIdx)
+        connectIC1dir.append(int(connectIC1[c1Idx, nIdx]))
 
-print connectIC1dir[0]
+# synapses (DVS-C1)
+taupre  = 16.8*ms
+taupost = 33.7*ms
+wmax = 1
+Apre = 0.03125
+Apost = -0.85*Apre
+
+S_IC1 = Synapses(I, C1,
+             '''
+             w : 1
+             dapre/dt = -apre/taupre : 1 (event-driven)
+             dapost/dt = -apost/taupost : 1 (event-driven)
+             ''',
+             on_pre='''
+             v_post += w
+             apre += Apre
+             w = clip(w+apost, 0, wmax)
+             ''',
+             on_post='''
+             apost += Apost
+             w = clip(w+apre, 0, wmax)
+             ''', method='linear')
+
+S_IC1.connect(i = connectIC1inp, j = connectIC1dir)
+
+# report state of the script
+print "-> S_IC1: Synapses I-C1 created."
+
+# we need the weights of these neural maps (WEIGHT SHARING)
+weightsC1 = np.random.uniform(0, 1, 8)
+
+# assing the weights to the synapses
+for mIdx in xrange(0, nMapsc1):
+    S_IC1.w[:, nC1 / nMapsc1 * mIdx : nC1 / nMapsc1 * (mIdx + 1)] = weightsC1[mIdx]
+
+# report state of the script
+print "-> S_IC1: Weight sharing."
 
 # RUN THE SIMULATION & PLOTS ####################################################################
 # run((max(spikes2) + 1000)*us, report='text')
