@@ -1,6 +1,7 @@
 #########
 # IMPORTS
 #########
+import sys
 import paer
 from brian2 import *
 import matplotlib as mpl
@@ -105,11 +106,27 @@ Minput = SpikeMonitor(I)
 '''Receptive fields: 4x4 with overlap 1
    Neuronal maps: 8'''
 
-RFc1len  = 4
-RFc1size = RFc1len**2
-nMapsc1  = 8
-overlap  = 1
-nC1      = DVSsize / RFc1size * nMapsc1
+RFc1len    = 4              # length of the side of the receptive field
+RFc1size   = RFc1len**2     # size of the receptive field
+RFc1lenmax = 32             # max length of the side of the receptive field
+nMapsc1    = 8              # number of neural maps in this convolutional layer
+overlap    = 1              # overlap type for the receptive fields of this layer
+
+# check receptive fields
+if RFc1len%2 != 0 or RFc1len > RFc1lenmax:
+    print "\nError: the length of the RF has to be even and smaller than 32 pixels."
+    sys.exit()
+
+# number of neurons in the convolutional layer
+if overlap != 1 and overlap != 2 and overlap != RFc1len:
+    print "\nError: overlap can only be 1 (75%), 2 (50%), or RFc1len (0%)."
+    sys.exit()
+elif overlap == 1:
+    nC1 = (DVSlen + 1 - RFc1len)**2 * nMapsc1
+elif overlap == 2:
+    nC1 = ((DVSlen - RFc1len) / 2 + 1)**2 * nMapsc1
+else:
+    nC1 = DVSsize / RFc1size * nMapsc1
 
 # first layer of neurons
 tau = 10*ms
@@ -126,6 +143,10 @@ connectIC1     = np.zeros((RFc1size * nMapsc1, DVSsize))
 cntConnections = np.zeros(DVSsize)
 connectIC1.fill(-1)
 
+cntRow = 0
+cntCol = 0
+flapOverlap = 1
+cntOverlap  = 0
 for nIdx in xrange(0, DVSsize):
 
     # get the location on the image
@@ -133,7 +154,7 @@ for nIdx in xrange(0, DVSsize):
     DVScol = nIdx - DVSrow * DVSlen
 
     # check if we can fit a new RF at this location
-    if DVScol + RFc1len <= DVSlen and DVSrow + RFc1len <= DVSlen:
+    if DVScol + RFc1len <= DVSlen and DVSrow + RFc1len <= DVSlen and flapOverlap:
 
         # check the indices included in this RF
         for rRF in xrange(0, RFc1len):
@@ -145,20 +166,37 @@ for nIdx in xrange(0, DVSsize):
         # update the RF counter
         idxRF += 1
 
+    # update flagOverlap
+    cntOverlap += 1
+    if cntOverlap != overlap and flapOverlap:
+        flapOverlap = 0
+    elif cntOverlap == overlap:
+        flapOverlap = 1
+        cntOverlap  = 0
+
+    # update counters
+    if cntCol == DVSlen - 1:
+        cntCol  = 0
+        cntRow += 1
+        flapOverlap = 1
+        cntOverlap  = 0
+    else:
+        cntCol += 1
+
 # maximum number of RF
 idxRFmax = idxRF + 1
 
-print connectIC1[:, 0]
-
-# expand the network to other maps
-for nIdx in xrange(0, DVSsize):
-    for mIdx in xrange(1, nMapsc1):
-        for l in xrange(0, int(cntConnections[nIdx])):
-            connectIC1[cntConnections[nIdx]][nIdx] = idxRFmax * mIdx + connectIC1[l][nIdx]
-            cntConnections[nIdx] += 1
-            # print connectIC1[:, 0]
-
 print connectIC1[:,130]
+
+# # TODO: error here
+# # expand the network to other maps
+# for nIdx in xrange(0, DVSsize):
+#     for mIdx in xrange(1, nMapsc1):
+#         for l in xrange(0, int(cntConnections[nIdx])):
+#             connectIC1[cntConnections[nIdx]][nIdx] = idxRFmax * mIdx + connectIC1[l][nIdx]
+#             cntConnections[nIdx] += 1
+#             # print connectIC1[:, 0]
+
 
 # RUN THE SIMULATION & PLOTS ####################################################################
 # run((max(spikes2) + 1000)*us, report='text')
