@@ -106,8 +106,9 @@ print "-> I: Input layer created."
 
 
 # FIRST CONVOLUTIONAL LAYER #####################################################################
-'''Receptive fields: 4x4 with overlap 1
-   Neuronal maps: 8'''
+'''Receptive fields: 4x4 with overlap
+   Neuronal maps: 8
+   Neuron dynamics: http://brian2.readthedocs.io/en/stable/examples/synapses.STDP.html?highlight=mV '''
 
 RFc1len    = 4              # length of the side of the receptive field
 RFc1size   = RFc1len**2     # size of the receptive field
@@ -132,11 +133,16 @@ else:
     nC1 = DVSsize / RFc1size * nMapsc1
 
 # first layer of neurons
-tau = 10*ms
+taum =  10*ms
+taue =  5*ms
+vr   = -60*mV
+vt   = -54*mV
+
 eqs = '''
-dv/dt = (-v)/tau : 1 (unless refractory)
+dv/dt = (- ge * vr - v) / taum : volt (unless refractory)
+dge/dt = -ge / taue : 1
 '''
-C1 = NeuronGroup(nC1, eqs, threshold='v>5', reset='v = 0', refractory='5*ms', method='linear')
+C1 = NeuronGroup(nC1, eqs, threshold='v>vt', reset='v = vr', refractory='5*ms', method='linear')
 spikemon = SpikeMonitor(C1)
 M = StateMonitor(C1, 'v', record=False)
 
@@ -145,6 +151,7 @@ print "-> C1: Convolutional layer created."
 
 
 # SYNAPSES: INPUT - C1 ##########################################################################
+''' Synapse dynamics: #  http://brian2.readthedocs.io/en/stable/examples/synapses.STDP.html?highlight=mV '''
 
 # synapses between the input and first convolutional (neural maps not included)
 idxRF  = 0
@@ -221,27 +228,25 @@ for nIdx in xrange(0, DVSsize):
         connectIC1dir.append(int(connectIC1[c1Idx, nIdx]))
 
 # synapses (DVS-C1)
-taupre  = 16.8*ms
-taupost = 33.7*ms
-wmax = 1
-Apre = 0.03125
-Apost = -0.85*Apre
+taupre  = 20*ms
+taupost = taupre
+gmax    = .01
+dApre   = .01
+dApost  = -dApre * taupre / taupost * 1.05
+dApost *= gmax
+dApre  *= gmax
 
 S_IC1 = Synapses(I, C1,
-             '''
-             w : 1
-             dapre/dt = -apre/taupre : 1 (event-driven)
-             dapost/dt = -apost/taupost : 1 (event-driven)
-             ''',
-             on_pre='''
-             v_post += w
-             apre += Apre
-             w = clip(w+apost, 0, wmax)
-             ''',
-             on_post='''
-             apost += Apost
-             w = clip(w+apre, 0, wmax)
-             ''', method='linear')
+                 '''
+                 w : 1
+                 dApre/dt = -Apre / taupre : 1 (event-driven)
+                 dApost/dt = -Apost / taupost : 1 (event-driven)''',
+                 on_pre='''ge += w
+                 Apre += dApre
+                 w = clip(w + Apost, 0, gmax)''',
+                 on_post='''Apost += dApost
+                 w = clip(w + Apre, 0, gmax)
+                 ''', method='linear')
 
 S_IC1.connect(i = connectIC1inp, j = connectIC1dir)
 
@@ -258,7 +263,6 @@ for mIdx in xrange(0, nMapsc1):
 # report state of the script
 print "-> S_IC1: Weight sharing."
 
-# TODO: take a look at Competitive Hebbian Learning Through Spike-Timing-Dependent Synaptic Plasticity for parameter tuning
 # TODO: intra-map lateral inhibition
 # TODO: inter-map STDP
 
