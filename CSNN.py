@@ -110,7 +110,7 @@ RFc1len    = 4              # length of the side of the receptive field
 RFc1size   = RFc1len**2     # size of the receptive field
 RFc1lenmax = 32             # max length of the side of the receptive field
 nMapsc1    = 8              # number of neural maps in this convolutional layer
-overlap    = 1              # overlap type for the receptive fields of this layer
+overlap    = 4              # overlap type for the receptive fields of this layer
 
 # check receptive fields
 if RFc1len%2 != 0 or RFc1len > RFc1lenmax:
@@ -145,41 +145,53 @@ connectIC1.fill(-1)
 
 cntRow = 0
 cntCol = 0
-flapOverlap = 1
-cntOverlap  = 0
+flapOverlapCol = 1
+cntOverlapCol  = 0
+flapOverlapRow = 1
+cntOverlapRow  = 0
 for nIdx in xrange(0, DVSsize):
 
-    # get the location on the image
-    DVSrow = nIdx / DVSlen
-    DVScol = nIdx - DVSrow * DVSlen
+    # check if a new RF should be included here
+    if flapOverlapCol and flapOverlapRow:
 
-    # check if we can fit a new RF at this location
-    if DVScol + RFc1len <= DVSlen and DVSrow + RFc1len <= DVSlen and flapOverlap:
+        # get the location on the image
+        DVSrow = nIdx / DVSlen
+        DVScol = nIdx - DVSrow * DVSlen
 
-        # check the indices included in this RF
-        for rRF in xrange(0, RFc1len):
-            for cRF in xrange(0, RFc1len):
-                auxIdx = (DVSrow + rRF) * DVSlen + (DVScol + cRF)
-                connectIC1[cntConnections[auxIdx]][auxIdx] = idxRF
-                cntConnections[auxIdx] += 1
+        # check if we can fit a new RF at this location
+        if DVScol + RFc1len <= DVSlen and DVSrow + RFc1len <= DVSlen:
 
-        # update the RF counter
-        idxRF += 1
+            # check the indices included in this RF
+            for rRF in xrange(0, RFc1len):
+                for cRF in xrange(0, RFc1len):
+                    auxIdx = (DVSrow + rRF) * DVSlen + (DVScol + cRF)
+                    connectIC1[cntConnections[auxIdx]][auxIdx] = idxRF
+                    cntConnections[auxIdx] += 1
+
+            # update the RF counter
+            idxRF += 1
 
     # update flagOverlap
-    cntOverlap += 1
-    if cntOverlap != overlap and flapOverlap:
-        flapOverlap = 0
-    elif cntOverlap == overlap:
-        flapOverlap = 1
-        cntOverlap  = 0
+    cntOverlapCol += 1
+    if cntOverlapCol != overlap and flapOverlapCol:
+        flapOverlapCol = 0
+    elif cntOverlapCol == overlap:
+        flapOverlapCol = 1
+        cntOverlapCol  = 0
 
     # update counters
     if cntCol == DVSlen - 1:
         cntCol  = 0
         cntRow += 1
-        flapOverlap = 1
-        cntOverlap  = 0
+        flapOverlapCol = 1
+        cntOverlapCol  = 0
+
+        cntOverlapRow += 1
+        if cntOverlapRow != overlap and flapOverlapRow:
+            flapOverlapRow = 0
+        elif cntOverlapRow == overlap:
+            flapOverlapRow = 1
+            cntOverlapRow = 0
     else:
         cntCol += 1
 
@@ -203,6 +215,8 @@ for nIdx in xrange(0, DVSsize):
     for c1Idx in xrange(0, int(cntConnections[nIdx])):
         aux.append(connectIC1[c1Idx, nIdx])
     connectIC1dir.append(aux)
+
+print connectIC1dir[0]
 
 # RUN THE SIMULATION & PLOTS ####################################################################
 # run((max(spikes2) + 1000)*us, report='text')
