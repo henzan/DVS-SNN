@@ -186,16 +186,13 @@ for nIdx in xrange(0, DVSsize):
 # maximum number of RF
 idxRFmax = idxRF + 1
 
-print connectIC1[:,130]
-
-# # TODO: error here
-# # expand the network to other maps
-# for nIdx in xrange(0, DVSsize):
-#     for mIdx in xrange(1, nMapsc1):
-#         for l in xrange(0, int(cntConnections[nIdx])):
-#             connectIC1[cntConnections[nIdx]][nIdx] = idxRFmax * mIdx + connectIC1[l][nIdx]
-#             cntConnections[nIdx] += 1
-#             # print connectIC1[:, 0]
+# augment the indices to other neural maps
+for nIdx in xrange(0, DVSsize):
+    aux = int(cntConnections[nIdx])
+    for mIdx in xrange(1, nMapsc1):
+        for l in xrange(0, aux):
+            connectIC1[int(cntConnections[nIdx])][nIdx] = idxRFmax * mIdx + connectIC1[l, nIdx]
+            cntConnections[nIdx] += 1
 
 
 # RUN THE SIMULATION & PLOTS ####################################################################
