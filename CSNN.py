@@ -213,15 +213,6 @@ for nIdx in xrange(0, DVSsize):
             cntConnections[nIdx] += 1
 
 # prepare data for the simulator
-# connectIC1dir = []
-# connectIC1inp = []
-# for nIdx in xrange(0, DVSsize):
-#     connectIC1inp.append(nIdx)
-#     aux = []
-#     for c1Idx in xrange(0, int(cntConnections[nIdx])):
-#         aux.append(int(connectIC1[c1Idx, nIdx]))
-#     connectIC1dir.append(aux)
-
 connectIC1dir = []
 connectIC1inp = []
 for nIdx in xrange(0, DVSsize):
@@ -266,6 +257,10 @@ for mIdx in xrange(0, nMapsc1):
 
 # report state of the script
 print "-> S_IC1: Weight sharing."
+
+# TODO: take a look at Competitive Hebbian Learning Through Spike-Timing-Dependent Synaptic Plasticity for parameter tuning
+# TODO: intra-map lateral inhibition
+# TODO: inter-map STDP
 
 # RUN THE SIMULATION & PLOTS ####################################################################
 # run((max(spikes2) + 1000)*us, report='text')
