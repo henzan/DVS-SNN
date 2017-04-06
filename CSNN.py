@@ -146,7 +146,7 @@ dv/dt = (vr - v - ge * v + gi * (Ein - v)) / taum : volt (unless refractory)
 dge/dt = -ge / taue : 1
 dgi/dt = -gi / taui : 1
 '''
-C1 = NeuronGroup(nC1, eqs, threshold='v>vt', reset='v = vr', refractory='5*ms', method='linear')
+C1 = NeuronGroup(nC1, eqs, threshold='v>vt', reset='v = vr', refractory='5*ms', method='euler')
 spikemon = SpikeMonitor(C1)
 M = StateMonitor(C1, 'v', record=False)
 
@@ -248,9 +248,9 @@ S_IC1 = Synapses(I, C1,
                  dApost/dt = -Apost / taupost : 1 (event-driven)''',
                  on_pre='''ge += w
                  Apre += dApre
-                 w = clip(w + Apost, 0, gmax)''',
+                 w[i, (nC1/ nMapsc1) * (j/(nC1/ nMapsc1)) : (nC1/ nMapsc1) * (j/(nC1/ nMapsc1) + 1)] = clip(w + Apost, 0, gmax)''',
                  on_post='''Apost += dApost
-                 w = clip(w + Apre, 0, gmax)
+                 w[i, (nC1/ nMapsc1) * (j/(nC1/ nMapsc1)) : (nC1/ nMapsc1) * (j/(nC1/ nMapsc1) + 1)] = clip(w + Apre, 0, gmax)
                  ''', method='linear')
 
 S_IC1.connect(i = connectIC1inp, j = connectIC1dir)
@@ -311,4 +311,4 @@ for mIdx in xrange(0, nMapsc1):
 print "-> S_inhC1: Lateral inhibition."
 
 # RUN THE SIMULATION & PLOTS ####################################################################
-# run((max(spikes2) + 1000)*us, report='text')
+run((max(spikes2) + 1000)*us, report='text')
