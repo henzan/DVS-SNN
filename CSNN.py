@@ -1,6 +1,6 @@
-#########
+# ###########################################
 # IMPORTS
-#########
+# ###########################################
 import sys
 import paer
 from brian2 import *
@@ -8,9 +8,10 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 warnings.filterwarnings("ignore")
 
-###########
+
+# ###########################################
 # FUNCTIONS
-###########
+# ###########################################
 def get_data(file, max=10**60):
     aefile = paer.aefile(file, max_events=max+1)
     aedata = paer.aedata(aefile)
@@ -18,16 +19,16 @@ def get_data(file, max=10**60):
     print 'Points: %i, Time: %0.2f us' % (len(aefile.data), aetime)
     return aedata, aetime
 
-######
-# MAIN
-######
 
+# ###########################################
+# MAIN
+# ###########################################
 # start the scope for Brian
 start_scope()
 defaultclock.dt = 1*us
 
-
-# INPUTS ########################################################################################
+# ########################################################################################
+# INPUTS
 '''Assumptions: - Polarity not taken into account'''
 
 # do we consider the polarity of the data?
@@ -104,8 +105,8 @@ Minput = SpikeMonitor(I)
 # report state of the script
 print "-> I: Input layer created."
 
-
-# FIRST CONVOLUTIONAL LAYER #####################################################################
+# ########################################################################################
+# FIRST CONVOLUTIONAL LAYER
 '''Receptive fields: 4x4 with overlap
    Neuronal maps: 8
    Neuron dynamics: http://brian2.readthedocs.io/en/stable/examples/synapses.STDP.html?highlight=mV '''
@@ -114,7 +115,7 @@ RFc1len    = 4              # length of the side of the receptive field
 RFc1size   = RFc1len**2     # size of the receptive field
 RFc1lenmax = 32             # max length of the side of the receptive field
 nMapsc1    = 8              # number of neural maps in this convolutional layer
-overlap    = 2              # overlap type for the receptive fields of this layer
+overlap    = 4              # overlap type for the receptive fields of this layer
 
 # check receptive fields
 if RFc1len%2 != 0 or RFc1len > RFc1lenmax:
@@ -135,12 +136,15 @@ else:
 # first layer of neurons
 taum =  10*ms
 taue =  5*ms
+taui =  taue
 vr   = -60*mV
 vt   = -54*mV
+Ein  = -70*mV
 
 eqs = '''
-dv/dt = (- ge * vr - v) / taum : volt (unless refractory)
+dv/dt = (vr - v - ge * v + gi * (Ein - v)) / taum : volt (unless refractory)
 dge/dt = -ge / taue : 1
+dgi/dt = -gi / taui : 1
 '''
 C1 = NeuronGroup(nC1, eqs, threshold='v>vt', reset='v = vr', refractory='5*ms', method='linear')
 spikemon = SpikeMonitor(C1)
@@ -149,9 +153,9 @@ M = StateMonitor(C1, 'v', record=False)
 # report state of the script
 print "-> C1: Convolutional layer created."
 
-
-# SYNAPSES: INPUT - C1 ##########################################################################
-''' Synapse dynamics: #  http://brian2.readthedocs.io/en/stable/examples/synapses.STDP.html?highlight=mV '''
+# ########################################################################################
+# EXCITATORY STDP SYNAPSES: INPUT - C1
+''' Synapse dynamics: http://brian2.readthedocs.io/en/stable/examples/synapses.STDP.html?highlight=mV '''
 
 # synapses between the input and first convolutional (neural maps not included)
 idxRF  = 0
@@ -256,14 +260,61 @@ print "-> S_IC1: Synapses I-C1 created."
 # we need the weights of these neural maps (WEIGHT SHARING)
 weightsC1 = np.random.uniform(0, 1, 8)
 
-# assing the weights to the synapses
+# assign the weights to the synapses
 for mIdx in xrange(0, nMapsc1):
-    S_IC1.w[:, nC1 / nMapsc1 * mIdx : nC1 / nMapsc1 * (mIdx + 1)] = weightsC1[mIdx]
+    S_IC1.w[:, nC1 / nMapsc1 * mIdx : nC1 / nMapsc1 * (mIdx + 1)] = weightsC1[mIdx] * gmax
 
 # report state of the script
 print "-> S_IC1: Weight sharing."
 
-# TODO: intra-map lateral inhibition
+# ########################################################################################
+# LATERAL INHIBITION SYNAPSES: C1 - C1
+
+# synapses for lateral inhibition
+inhC1dir = []
+inhC1inp = []
+for nIdx in xrange(0, nC1):
+
+    aux  = nIdx / (nC1 / nMapsc1)           # neural map of the current index
+    aux2 = nIdx - (nC1 / nMapsc1) * aux     # neuron index in neural map 0
+
+    # connection with other neural maps but not with itself
+    for mIdx in xrange(0, nMapsc1):
+
+        if aux != mIdx:
+            inhC1inp.append(nIdx)
+            inhC1dir.append(aux2 + (nC1 / nMapsc1) * mIdx)
+
+S_inhC1 = Synapses(C1, C1,
+                 '''
+                 w : 1
+                 dApre/dt = -Apre / taupre : 1 (event-driven)
+                 dApost/dt = -Apost / taupost : 1 (event-driven)''',
+                 on_pre='''gi += w
+                 Apre += dApre
+                 w = clip(w + Apost, 0, gmax)''',
+                 on_post='''Apost += dApost
+                 w = clip(w + Apre, 0, gmax)
+                 ''', method='linear')
+
+S_inhC1.connect(i=inhC1inp, j=inhC1dir)
+
+# we need the weights of these neural maps (WEIGHT SHARING)
+weightsinhC1 = np.random.uniform(0, 1, 8)
+
+# assign the weights to the synapses
+for mIdx in xrange(0, nMapsc1):
+    S_inhC1.w[:, nC1 / nMapsc1 * mIdx : nC1 / nMapsc1 * (mIdx + 1)] = weightsinhC1[mIdx] * gmax
+
+# report state of the script
+print "-> S_inhC1: Lateral inhibition."
+
+
+
+
+
+
+
 # TODO: inter-map STDP
 
 # RUN THE SIMULATION & PLOTS ####################################################################
