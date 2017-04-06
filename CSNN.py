@@ -240,6 +240,7 @@ dApost  = -dApre * taupre / taupost * 1.05
 dApost *= gmax
 dApre  *= gmax
 
+# TODO: inter-map STDP
 S_IC1 = Synapses(I, C1,
                  '''
                  w : 1
@@ -308,14 +309,6 @@ for mIdx in xrange(0, nMapsc1):
 
 # report state of the script
 print "-> S_inhC1: Lateral inhibition."
-
-
-
-
-
-
-
-# TODO: inter-map STDP
 
 # RUN THE SIMULATION & PLOTS ####################################################################
 # run((max(spikes2) + 1000)*us, report='text')
