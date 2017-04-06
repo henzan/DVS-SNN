@@ -116,7 +116,7 @@ print "-> I: Input layer created."
 RFc1len    = 4              # length of the side of the receptive field
 RFc1size   = RFc1len**2     # size of the receptive field
 RFc1lenmax = 32             # max length of the side of the receptive field
-nMapsc1    = 8              # number of neural maps in this convolutional layer
+nMapsc1    = 1              # number of neural maps in this convolutional layer
 overlap    = 4              # overlap type for the receptive fields of this layer
 
 # check receptive fields
@@ -275,23 +275,24 @@ dApre  *= gmax
 weightsC1 = np.random.uniform(0, 1, nMapsc1)
 
 eqs = '''
-    w : 1 (shared)
+    w_aux = 0: 1
+    w = w_aux: 1 (shared)
     dApre/dt = -Apre / taupre : 1 (event-driven)
     dApost/dt = -Apost / taupost : 1 (event-driven)'''
 eqsPre = '''
     ge += w
     Apre += dApre
-    w = clip(w + Apost, 0, gmax)'''
+    w = clip(w + Apost, 0, gmax)
+    '''
 eqsPost = '''
-    Apost += dApost
     w = clip(w + Apre, 0, gmax)
+    Apost += dApost
 '''
 
 for mIdx in xrange(0, nMapsc1):
     exec('S_IC1_' + str(mIdx) + ''' = Synapses(I, C1, eqs, on_pre = eqsPre, on_post = eqsPost, method='linear')''')
     exec('S_IC1_' + str(mIdx) + '.connect(i = connectIC1inp' + str(mIdx) + ', j = connectIC1dir' + str(mIdx) + ')')
-    exec('S_IC1_' + str(mIdx) + '.w = weightsC1[' + str(mIdx) + '] * gmax')
-
+    # exec('S_IC1_' + str(mIdx) + '.w = weightsC1[' + str(mIdx) + '] * gmax')
 
 # report state of the script
 print "-> S_IC1: Synapses I-C1 created with Weight Sharing."
@@ -299,44 +300,45 @@ print "-> S_IC1: Synapses I-C1 created with Weight Sharing."
 # ########################################################################################
 # LATERAL INHIBITION SYNAPSES: C1 - C1
 
-# synapses for lateral inhibition
-inhC1dir = []
-inhC1inp = []
-for nIdx in xrange(0, nC1):
+# # synapses for lateral inhibition
+# inhC1dir = []
+# inhC1inp = []
+# for nIdx in xrange(0, nC1):
+#
+#     aux  = nIdx / (nC1 / nMapsc1)           # neural map of the current index
+#     aux2 = nIdx - (nC1 / nMapsc1) * aux     # neuron index in neural map 0
+#
+#     # connection with other neural maps but not with itself
+#     for mIdx in xrange(0, nMapsc1):
+#
+#         if aux != mIdx:
+#             inhC1inp.append(nIdx)
+#             inhC1dir.append(aux2 + (nC1 / nMapsc1) * mIdx)
+#
+# S_inhC1 = Synapses(C1, C1,
+#                  '''
+#                  w : 1
+#                  dApre/dt = -Apre / taupre : 1 (event-driven)
+#                  dApost/dt = -Apost / taupost : 1 (event-driven)''',
+#                  on_pre='''gi += w
+#                  Apre += dApre
+#                  w = clip(w + Apost, 0, gmax)''',
+#                  on_post='''Apost += dApost
+#                  w = clip(w + Apre, 0, gmax)
+#                  ''', method='linear')
+#
+# S_inhC1.connect(i=inhC1inp, j=inhC1dir)
+#
+# # we need the weights of these neural maps (WEIGHT SHARING)
+# weightsinhC1 = np.random.uniform(0, 1, 8)
+#
+# # assign the weights to the synapses
+# for mIdx in xrange(0, nMapsc1):
+#     S_inhC1.w[:, nC1 / nMapsc1 * mIdx : nC1 / nMapsc1 * (mIdx + 1)] = weightsinhC1[mIdx] * gmax
+#
+# # report state of the script
+# print "-> S_inhC1: Lateral inhibition."
 
-    aux  = nIdx / (nC1 / nMapsc1)           # neural map of the current index
-    aux2 = nIdx - (nC1 / nMapsc1) * aux     # neuron index in neural map 0
-
-    # connection with other neural maps but not with itself
-    for mIdx in xrange(0, nMapsc1):
-
-        if aux != mIdx:
-            inhC1inp.append(nIdx)
-            inhC1dir.append(aux2 + (nC1 / nMapsc1) * mIdx)
-
-S_inhC1 = Synapses(C1, C1,
-                 '''
-                 w : 1
-                 dApre/dt = -Apre / taupre : 1 (event-driven)
-                 dApost/dt = -Apost / taupost : 1 (event-driven)''',
-                 on_pre='''gi += w
-                 Apre += dApre
-                 w = clip(w + Apost, 0, gmax)''',
-                 on_post='''Apost += dApost
-                 w = clip(w + Apre, 0, gmax)
-                 ''', method='linear')
-
-S_inhC1.connect(i=inhC1inp, j=inhC1dir)
-
-# we need the weights of these neural maps (WEIGHT SHARING)
-weightsinhC1 = np.random.uniform(0, 1, 8)
-
-# assign the weights to the synapses
-for mIdx in xrange(0, nMapsc1):
-    S_inhC1.w[:, nC1 / nMapsc1 * mIdx : nC1 / nMapsc1 * (mIdx + 1)] = weightsinhC1[mIdx] * gmax
-
-# report state of the script
-print "-> S_inhC1: Lateral inhibition."
-
-# RUN THE SIMULATION & PLOTS ####################################################################
+# ########################################################################################
+# RUN THE SIMULATION
 run((max(spikes2) + 1000)*us, report='text')
