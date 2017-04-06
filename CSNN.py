@@ -29,7 +29,8 @@ defaultclock.dt = 1*us
 
 # ########################################################################################
 # INPUTS
-'''Assumptions: - Polarity not taken into account'''
+'''Assumptions: - Polarity not taken into account
+                - Only working with polarity 0 right now.'''
 
 # do we consider the polarity of the data?
 polarity = False
@@ -57,8 +58,9 @@ if polarity:
 
 else:
     for x in xrange(0, len(data.y)):
-        indices.append(int(((data.y[x] - 1) * DVSlen + data.x[x]) - 1))
-        spikes.append(int(data.ts[x] - minSpikes + 1000))
+        if data.t[x] == 0:  # P = 0
+            indices.append(int(((data.y[x] - 1) * DVSlen + data.x[x]) - 1))
+            spikes.append(int(data.ts[x] - minSpikes + 1000))
 
 
 # correct the data file for possible errors (repetitions)
@@ -231,6 +233,35 @@ for nIdx in xrange(0, DVSsize):
         connectIC1inp.append(nIdx)
         connectIC1dir.append(int(connectIC1[c1Idx, nIdx]))
 
+# need to create groups of synapses depending on the neural map
+connectIC1dir0 = []
+connectIC1dir1 = []
+connectIC1dir2 = []
+connectIC1dir3 = []
+connectIC1dir4 = []
+connectIC1dir5 = []
+connectIC1dir6 = []
+connectIC1dir7 = []
+connectIC1inp0 = []
+connectIC1inp1 = []
+connectIC1inp2 = []
+connectIC1inp3 = []
+connectIC1inp4 = []
+connectIC1inp5 = []
+connectIC1inp6 = []
+connectIC1inp7 = []
+for nIdx in xrange(0, DVSsize):
+    for c1Idx in xrange(0, int(cntConnections[nIdx])):
+
+        aux = int(connectIC1[c1Idx, nIdx]) / (nC1 / nMapsc1)
+        if aux < 8:
+            exec('connectIC1inp' + str(aux) + '.append(nIdx)')
+            exec('connectIC1dir' + str(aux) + '.append(int(connectIC1[c1Idx, nIdx]))')
+        else:
+            print "\nError: the maximum number of neural maps is set to 8."
+            sys.exit()
+
+# TODO: inter-map STDP
 # synapses (DVS-C1)
 taupre  = 20*ms
 taupost = taupre
@@ -240,33 +271,30 @@ dApost  = -dApre * taupre / taupost * 1.05
 dApost *= gmax
 dApre  *= gmax
 
-# TODO: inter-map STDP
-S_IC1 = Synapses(I, C1,
-                 '''
-                 w : 1
-                 dApre/dt = -Apre / taupre : 1 (event-driven)
-                 dApost/dt = -Apost / taupost : 1 (event-driven)''',
-                 on_pre='''ge += w
-                 Apre += dApre
-                 w[i, (nC1/ nMapsc1) * (j/(nC1/ nMapsc1)) : (nC1/ nMapsc1) * (j/(nC1/ nMapsc1) + 1)] = clip(w + Apost, 0, gmax)''',
-                 on_post='''Apost += dApost
-                 w[i, (nC1/ nMapsc1) * (j/(nC1/ nMapsc1)) : (nC1/ nMapsc1) * (j/(nC1/ nMapsc1) + 1)] = clip(w + Apre, 0, gmax)
-                 ''', method='linear')
-
-S_IC1.connect(i = connectIC1inp, j = connectIC1dir)
-
-# report state of the script
-print "-> S_IC1: Synapses I-C1 created."
-
 # we need the weights of these neural maps (WEIGHT SHARING)
-weightsC1 = np.random.uniform(0, 1, 8)
+weightsC1 = np.random.uniform(0, 1, nMapsc1)
 
-# assign the weights to the synapses
+eqs = '''
+    w : 1 (shared)
+    dApre/dt = -Apre / taupre : 1 (event-driven)
+    dApost/dt = -Apost / taupost : 1 (event-driven)'''
+eqsPre = '''
+    ge += w
+    Apre += dApre
+    w = clip(w + Apost, 0, gmax)'''
+eqsPost = '''
+    Apost += dApost
+    w = clip(w + Apre, 0, gmax)
+'''
+
 for mIdx in xrange(0, nMapsc1):
-    S_IC1.w[:, nC1 / nMapsc1 * mIdx : nC1 / nMapsc1 * (mIdx + 1)] = weightsC1[mIdx] * gmax
+    exec('S_IC1_' + str(mIdx) + ''' = Synapses(I, C1, eqs, on_pre = eqsPre, on_post = eqsPost, method='linear')''')
+    exec('S_IC1_' + str(mIdx) + '.connect(i = connectIC1inp' + str(mIdx) + ', j = connectIC1dir' + str(mIdx) + ')')
+    exec('S_IC1_' + str(mIdx) + '.w = weightsC1[' + str(mIdx) + '] * gmax')
+
 
 # report state of the script
-print "-> S_IC1: Weight sharing."
+print "-> S_IC1: Synapses I-C1 created with Weight Sharing."
 
 # ########################################################################################
 # LATERAL INHIBITION SYNAPSES: C1 - C1
